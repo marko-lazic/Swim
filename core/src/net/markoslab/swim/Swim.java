@@ -1,103 +1,85 @@
 package net.markoslab.swim;
 
-import com.badlogic.gdx.ApplicationAdapter;
+
+import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.g3d.Environment;
+import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 
-public class Swim extends ApplicationAdapter {
-	public static final String SWIM_DEV_JPG = "swim-dev.jpg";
-	private SpriteBatch batch;
-	private Sprite swimSprite;
-	private OrthographicCamera camera;
+/**
+ * @author Marko
+ */
+public class Swim implements ApplicationListener {
+	public Environment environment;
+	public PerspectiveCamera cam;
+	public CameraInputController camController;
+	public ModelBatch modelBatch;
+	public Model model;
+	public ModelInstance instance;
 
 	@Override
-	public void create () {
-		float w = Gdx.graphics.getWidth();
-		float h = Gdx.graphics.getHeight();
-		camera = new OrthographicCamera(300, 300 * (h / w));
-		camera.position.set(camera.viewportWidth / 2f, camera.viewportHeight / 2f, 0);
-		camera.update();
+	public void create() {
+		environment = new Environment();
+		environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
+		environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f));
 
-		swimSprite = new Sprite(new Texture(SWIM_DEV_JPG));
-		swimSprite.setPosition(0, 0);
-		swimSprite.setScale(-0.8F);
-		batch = new SpriteBatch();
+		modelBatch = new ModelBatch();
 
+		cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		cam.position.set(10f, 10f, 10f);
+		cam.lookAt(0,0,0);
+		cam.near = 1f;
+		cam.far = 300f;
+		cam.update();
+
+		ModelBuilder modelBuilder = new ModelBuilder();
+		model = modelBuilder.createBox(5f, 5f, 5f,
+				new Material(ColorAttribute.createDiffuse(Color.GREEN)),
+				Usage.Position | Usage.Normal);
+		instance = new ModelInstance(model);
+
+		camController = new CameraInputController(cam);
+		Gdx.input.setInputProcessor(camController);
 	}
 
 	@Override
-	public void render () {
-		handleInput();
-		camera.update();
-		batch.setProjectionMatrix(camera.projection);
-		Gdx.gl.glClearColor(0, 0, 0, 1);
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-		batch.begin();
-		swimSprite.draw(batch);
-		batch.end();
-	}
+	public void render() {
+		camController.update();
 
-	private void handleInput() {
-		if (Gdx.input.isTouched()) {
-			Vector3 mouse = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
-			Vector3 world = camera.unproject(mouse);
-			if (swimSprite.getBoundingRectangle().contains(world.x, world.y)) {
-				Gdx.app.exit();
-			}
-		}
+		Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-		if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-			camera.zoom += 0.02;
-			//If the A Key is pressed, add 0.02 to the Camera's Zoom
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
-			camera.zoom -= 0.02;
-			//If the Q Key is pressed, subtract 0.02 from the Camera's Zoom
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-			camera.translate(-3, 0, 0);
-			//If the LEFT Key is pressed, translate the camera -3 units in the X-Axis
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-			camera.translate(3, 0, 0);
-			//If the RIGHT Key is pressed, translate the camera 3 units in the X-Axis
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-			camera.translate(0, -3, 0);
-			//If the DOWN Key is pressed, translate the camera -3 units in the Y-Axis
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-			camera.translate(0, 3, 0);
-			//If the UP Key is pressed, translate the camera 3 units in the Y-Axis
-		}
-
-		camera.zoom = MathUtils.clamp(camera.zoom, 0.1f, 10000 / camera.viewportWidth);
-
-		float effectiveViewportWidth = camera.viewportWidth * camera.zoom;
-		float effectiveViewportHeight = camera.viewportHeight * camera.zoom;
-
-		camera.position.x = MathUtils.clamp(camera.position.x, effectiveViewportWidth / 2f, 10000 - effectiveViewportWidth / 2f);
-		camera.position.y = MathUtils.clamp(camera.position.y, effectiveViewportHeight / 2f, 10000 - effectiveViewportHeight / 2f);
+		modelBatch.begin(cam);
+		modelBatch.render(instance, environment);
+		modelBatch.end();
 	}
 
 	@Override
 	public void dispose() {
-		swimSprite.getTexture().dispose();
-		batch.dispose();
+		modelBatch.dispose();
+		model.dispose();
 	}
 
 	@Override
 	public void resize(int width, int height) {
-		super.resize(width, height);
-		camera.viewportWidth = 300f;
-		camera.viewportHeight = 300f * height/width;
-		camera.update();
+	}
+
+	@Override
+	public void pause() {
+	}
+
+	@Override
+	public void resume() {
 	}
 }
